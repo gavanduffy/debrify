@@ -192,6 +192,8 @@ class DebrifyApp extends StatelessWidget {
       ),
       home: const AppInitializer(),
     );
+      },
+    );
   }
 }
 
