@@ -1,6 +1,8 @@
 name: Build Release Artifacts
 
 on:
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       job:
@@ -11,144 +13,155 @@ on:
         options:
           - all
           - android
-          - androidtv
+          - macos
           - windows
           - ios
+          - linux
 
 permissions:
   contents: write
 
 jobs:
-
   android:
-    if: github.event.inputs.job == 'all' || github.event.inputs.job == 'android'
+    if: github.event_name == 'release' || github.event.inputs.job == 'all' || github.event.inputs.job == 'android'
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pubspec.lock', '**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-
-      - name: Get dependencies
-        run: flutter pub get
-      - name: Decode keystore
-        run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
-      - name: Create key.properties
-        run: |
-          cat > android/key.properties << EOF
-          storePassword=${{ secrets.KEYSTORE_PASSWORD }}
-          keyPassword=${{ secrets.KEY_PASSWORD }}
-          keyAlias=${{ secrets.KEY_ALIAS }}
-          storeFile=release.keystore
-          EOF
-      - name: Build APK
-        run: flutter build apk --release
-      - name: Upload APK as artifact (manual)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: debrify-android
-          path: build/app/outputs/flutter-apk/app-release.apk
 
-  androidtv:
-    if: github.event.inputs.job == 'all' || github.event.inputs.job == 'androidtv'
-    runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'zulu'
-          java-version: '17'
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-      - name: Cache dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.pub-cache
-            .dart_tool
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-deps-${{ hashFiles('**/pubspec.lock', '**/*.gradle*') }}
-          restore-keys: |
-            ${{ runner.os }}-deps-
-      - name: Get dependencies
-        run: flutter pub get
-      - name: Build APK for Android TV
-        run: flutter build apk --release --flavor androidtv
-      - name: Upload APK as artifact (manual)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: debrify-androidtv
-          path: build/app/outputs/flutter-apk/app-release.apk
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  ios:
-    if: github.event.inputs.job == 'all' || github.event.inputs.job == 'ios'
+    - name: Setup Java
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'zulu'
+        java-version: '17'
+
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.32.8'
+        channel: 'stable'
+
+    - name: Cache dependencies
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.pub-cache
+          .dart_tool
+          ~/.gradle/caches
+          ~/.gradle/wrapper
+        key: ${{ runner.os }}-deps-${{ hashFiles('**/pubspec.lock', '**/*.gradle*') }}
+        restore-keys: |
+          ${{ runner.os }}-deps-
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Decode keystore
+      run: echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 -d > android/app/release.keystore
+
+    - name: Create key.properties
+      run: |
+        cat > android/key.properties << EOF
+        storePassword=${{ secrets.KEYSTORE_PASSWORD }}
+        keyPassword=${{ secrets.KEY_PASSWORD }}
+        keyAlias=${{ secrets.KEY_ALIAS }}
+        storeFile=release.keystore
+        EOF
+
+    - name: Build APK
+      run: flutter build apk --release
+
+    - name: Rename APK (release)
+      if: github.event_name == 'release'
+      run: mv build/app/outputs/flutter-apk/app-release.apk build/app/outputs/flutter-apk/debrify-${{ github.event.release.tag_name }}.apk
+
+    - name: Attach APK to GitHub Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/app/outputs/flutter-apk/debrify-${{ github.event.release.tag_name }}.apk
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload APK as artifact (manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: debrify-android
+        path: build/app/outputs/flutter-apk/app-release.apk
+
+  macos:
+    if: github.event_name == 'release' || github.event.inputs.job == 'all' || github.event.inputs.job == 'macos'
     runs-on: macos-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-      - name: Get dependencies
-        run: flutter pub get
-      - name: Build iOS app
-        run: flutter build ios --release --no-codesign
-      - name: Upload IPA as artifact (manual)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: debrify-ios
-          path: build/ios/iphoneos/Runner.app
+    - name: Checkout code
+      uses: actions/checkout@v4
 
-  windows:
-    if: github.event.inputs.job == 'all' || github.event.inputs.job == 'windows'
-    runs-on: windows-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-      - name: Setup Flutter
-        uses: subosito/flutter-action@v2
-        with:
-          flutter-version: '3.32.8'
-          channel: 'stable'
-      - name: Get dependencies
-        run: flutter pub get
-      - name: Build Windows app
-        run: flutter build windows --release
-      - name: Upload Windows build as artifact (manual)
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
-        with:
-          name: debrify-windows
-          path: build/windows/runner/Release
+    - name: Setup Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: '3.32.8'
+        channel: 'stable'
+
+    - name: Get dependencies
+      run: flutter pub get
+
+    - name: Build macOS app
+      run: flutter build macos --release
+
+    - name: Install create-dmg
+      run: HOMEBREW_NO_AUTO_UPDATE=1 brew install create-dmg
+
+    - name: Prepare DMG staging folder
+      run: |
+        cd build/macos/Build/Products/Release
+        rm -rf dmg-root
+        mkdir -p dmg-root
+        cp -R debrify.app dmg-root/Debrify.app
+
+    - name: Create DMG (release)
+      if: github.event_name == 'release'
+      run: |
+        cd build/macos/Build/Products/Release
+        create-dmg \
+          --volname "Debrify" \
+          --window-pos 200 120 \
+          --window-size 520 360 \
+          --icon-size 120 \
+          --icon "Debrify.app" 120 180 \
+          --app-drop-link 400 180 \
+          debrify-${{ github.event.release.tag_name }}.dmg \
+          dmg-root
+
+    - name: Create DMG (manual)
+      if: github.event_name == 'workflow_dispatch'
+      run: |
+        cd build/macos/Build/Products/Release
+        create-dmg \
+          --volname "Debrify" \
+          --window-pos 200 120 \
+          --window-size 520 360 \
+          --icon-size 120 \
+          --icon "Debrify.app" 120 180 \
+          --app-drop-link 400 180 \
+          debrify.dmg \
+          dmg-root
+
+    - name: Upload DMG to Release
+      if: github.event_name == 'release'
+      uses: softprops/action-gh-release@v1
+      with:
+        files: build/macos/Build/Products/Release/debrify-${{ github.event.release.tag_name }}.dmg
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload DMG as artifact (manual)
+      if: github.event_name == 'workflow_dispatch'
+      uses: actions/upload-artifact@v4
+      with:
+        name: debrify-macos
+        path: build/macos/Build/Products/Release/debrify.dmg
 
   windows:
     if: github.event_name == 'release' || github.event.inputs.job == 'all' || github.event.inputs.job == 'windows'
