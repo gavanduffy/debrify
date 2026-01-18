@@ -49,6 +49,11 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>vlc</string>
+		<string>vlc-x-callback</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

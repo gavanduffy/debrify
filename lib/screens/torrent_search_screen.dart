@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'dart:convert';
 import 'package:flutter/services.dart';
@@ -449,6 +450,113 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
 
   bool get _multipleServicesEnabled {
     return _enabledServicesCount > 1;
+  }
+
+  /// Play torrent in VLC by resolving it through Real-Debrid
+  Future<void> _playInVLCFromMagnet(String infohash, String torrentName) async {
+    final apiKey = await StorageService.getApiKey();
+    if (apiKey == null || apiKey.isEmpty) {
+      _showErrorSnack('Real-Debrid API key is required');
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text(
+              'Resolving stream for VLC...',
+              style: TextStyle(color: Colors.white),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final magnetLink = 'magnet:?xt=urn:btih:$infohash';
+      final response = await DebridService.addMagnet(apiKey, magnetLink);
+      final id = response['id'].toString();
+
+      // Check if it's cached/ready
+      var info = await DebridService.getTorrentInfo(apiKey, id);
+      
+      // If no files selected, select the largest one
+      if ((info['files'] as List?)?.isEmpty ?? true) {
+         // Wait a bit for RD to parse
+         await Future.delayed(const Duration(seconds: 1));
+         info = await DebridService.getTorrentInfo(apiKey, id);
+      }
+
+      final files = (info['files'] as List?)?.cast<Map<String, dynamic>>() ?? [];
+      if (files.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        _showErrorSnack('No files found in torrent');
+        return;
+      }
+
+      // Automatically select largest file if nothing is selected
+      final selectedFiles = files.where((f) => f['selected'] == 1).toList();
+      if (selectedFiles.isEmpty) {
+        // Find largest video file
+        int largestIdx = -1;
+        int maxBytes = -1;
+        for (int i = 0; i < files.length; i++) {
+          final bytes = files[i]['bytes'] as int? ?? 0;
+          if (bytes > maxBytes) {
+            maxBytes = bytes;
+            largestIdx = i;
+          }
+        }
+        
+        if (largestIdx != -1) {
+          await DebridService.selectFiles(apiKey, id, [files[largestIdx]['id'] as int]);
+          // Refresh info to get links
+          info = await DebridService.getTorrentInfo(apiKey, id);
+        }
+      }
+
+      final links = (info['links'] as List?)?.cast<String>() ?? [];
+      if (links.isEmpty) {
+        if (mounted) Navigator.of(context).pop();
+        _showErrorSnack('Torrent is not cached or has no links yet');
+        return;
+      }
+
+      // Unrestrict the first link
+      final unrestrict = await DebridService.unrestrictLink(apiKey, links[0]);
+      final downloadUrl = unrestrict['download']?.toString() ?? '';
+
+      if (mounted) Navigator.of(context).pop();
+
+      if (downloadUrl.isNotEmpty) {
+        final success = await VideoPlayerLauncher.launchInVLC(downloadUrl);
+        if (!success) {
+          _showErrorSnack('VLC is not installed or failed to launch');
+        }
+      } else {
+        _showErrorSnack('Failed to get download link');
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      _showErrorSnack('Error: $e');
+    }
+  }
+
+  void _showErrorSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: const Color(0xFFEF4444),
+      ),
+    );
   }
 
   void _handleTorrentCardActivated(Torrent torrent, int index) async {
@@ -5594,6 +5702,59 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
     return videos;
   }
 
+  Future<bool?> _showUncachedTorrentPrompt(String provider) async {
+    final dontAsk = await StorageService.getDontAskUncachedTorrent();
+    if (dontAsk) return true;
+
+    bool dontAskAgain = false;
+
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Uncached Torrent'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'This torrent is not currently cached on $provider. '
+                'Would you like to add it to your $provider account anyway? '
+                'It will begin downloading there.',
+              ),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                title: const Text('Don\'t ask again', style: TextStyle(fontSize: 14)),
+                value: dontAskAgain,
+                onChanged: (val) {
+                  setDialogState(() {
+                    dontAskAgain = val ?? false;
+                  });
+                },
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (dontAskAgain) {
+                  await StorageService.setDontAskUncachedTorrent(true);
+                }
+                if (!context.mounted) return;
+                Navigator.pop(context, true);
+              },
+              child: const Text('Add to Cloud'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Future<void> _addToRealDebrid(
     String infohash,
     String torrentName,
@@ -5721,6 +5882,30 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
     } catch (e) {
       // Close loading dialog
       Navigator.of(context).pop();
+
+      final errorMsg = e.toString();
+      if (errorMsg.contains('not readily available')) {
+        // Uncached torrent - show prompt
+        final shouldAdd = await _showUncachedTorrentPrompt('Real-Debrid');
+        if (shouldAdd == true) {
+          // Add manually without file selection requirement (RD will start downloading)
+          try {
+            await DebridService.addMagnet(apiKey, 'magnet:?xt=urn:btih:$infohash');
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Added to Real-Debrid for downloading')),
+              );
+            }
+          } catch (addError) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text('Failed to add: $addError')),
+              );
+            }
+          }
+        }
+        return;
+      }
 
       // Show error message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -6177,10 +6362,28 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
       if (!success) {
         final error = (response['error'] ?? '').toString();
         if (error == 'DOWNLOAD_NOT_CACHED') {
-          _showTorboxSnack(
-            'This torrent is not cached on Torbox. Please try a different torrent.',
-            isError: true,
-          );
+          final shouldAdd = await _showUncachedTorrentPrompt('Torbox');
+          if (shouldAdd == true) {
+            _showTorboxLoadingDialog(torrentName);
+            try {
+              final addResponse = await TorboxService.createTorrent(
+                apiKey: apiKey,
+                magnet: magnetLink,
+                seed: true,
+                allowZip: true,
+                addOnlyIfCached: false, // Add even if not cached
+              );
+              if (mounted) Navigator.of(context).pop();
+              if (addResponse['success'] == true) {
+                _showTorboxSnack('Added to Torbox for downloading');
+              } else {
+                _showTorboxSnack('Failed to add to Torbox: ${addResponse['error']}', isError: true);
+              }
+            } catch (addError) {
+              if (mounted) Navigator.of(context).pop();
+              _showTorboxSnack('Failed to add: $addError', isError: true);
+            }
+          }
         } else if (error.contains('INVALID_API_KEY') || error.contains('UNAUTHORIZED')) {
           _showTorboxSnack(
             'Invalid API key. Please check your Torbox settings.',
@@ -10905,7 +11108,15 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
       size /= 1024;
       i++;
     }
-    return '${size.toStringAsFixed(size < 10 ? 1 : 0)} ${suffixes[i]}';
+
+    // For non-TV mode, use GestureDetector with inline card content
+    return GestureDetector(
+      onTap: () {
+        // Navigate to torrent details or perform default action
+        // For now, just log or do nothing since TV has the smart action
+      },
+      child: _buildNonTVCardContent(torrent),
+    );
   }
 
   Widget _buildNonTVCardContent(Torrent torrent) {

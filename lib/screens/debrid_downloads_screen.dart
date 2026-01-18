@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:file_picker/file_picker.dart';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/services.dart';
@@ -2547,7 +2550,7 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
           Tooltip(
             message: 'Add magnet link',
             child: IconButton(
-              onPressed: _showAddMagnetDialog,
+              onPressed: _showAddContentDialog,
               icon: const Icon(Icons.add_circle_outline),
               color: theme.colorScheme.primary,
               visualDensity: VisualDensity.compact,
@@ -2998,6 +3001,55 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
       ),
     );
 
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return CupertinoContextMenu(
+        actions: <Widget>[
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _navigateIntoTorrent(torrent);
+            },
+            trailingIcon: CupertinoIcons.folder_open,
+            child: const Text('Open Folder'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handlePlayMultiFileTorrent(torrent);
+            },
+            trailingIcon: CupertinoIcons.play_fill,
+            child: const Text('Play All'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDownloadTorrent(torrent);
+            },
+            trailingIcon: CupertinoIcons.cloud_download,
+            child: const Text('Download All'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleAddTorrentToPlaylist(torrent);
+            },
+            trailingIcon: CupertinoIcons.add,
+            child: const Text('Add to Playlist'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDeleteTorrent(torrent);
+            },
+            isDestructiveAction: true,
+            trailingIcon: CupertinoIcons.trash,
+            child: const Text('Delete'),
+          ),
+        ],
+        child: cardContent,
+      );
+    }
+
     return TvFocusScrollWrapper(child: cardContent);
   }
 
@@ -3312,8 +3364,7 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
     final canStream = download.streamable == 1;
     final isVideo = FileUtils.isVideoFile(download.filename);
 
-    return TvFocusScrollWrapper(
-      child: Card(
+    final cardContent = Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -3405,6 +3456,8 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
                   onSelected: (value) {
                     if (value == 'copy_link') {
                       _handleDownloadAction(download);
+                    } else if (value == 'play_vlc') {
+                      VideoPlayerLauncher.launchInVLC(download.download);
                     } else if (value == 'delete') {
                       _handleDeleteDownload(download);
                     }
@@ -3420,6 +3473,17 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
                         ],
                       ),
                     ),
+                    if (canStream)
+                      const PopupMenuItem(
+                        value: 'play_vlc',
+                        child: Row(
+                          children: [
+                            Icon(Icons.play_circle_outline, size: 18, color: Colors.orange),
+                            const SizedBox(width: 12),
+                            Text('Play in VLC'),
+                          ],
+                        ),
+                      ),
                     const PopupMenuItem(
                       value: 'delete',
                       child: Row(
@@ -3437,8 +3501,60 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
           ],
         ),
       ),
-      ),
     );
+
+    if (defaultTargetPlatform == TargetPlatform.iOS) {
+      return CupertinoContextMenu(
+        actions: <Widget>[
+          if (canStream) ...[
+            CupertinoContextMenuAction(
+              onPressed: () {
+                Navigator.pop(context);
+                _handlePlayDownload(download);
+              },
+              trailingIcon: CupertinoIcons.play_fill,
+              child: const Text('Play'),
+            ),
+            CupertinoContextMenuAction(
+              onPressed: () {
+                Navigator.pop(context);
+                VideoPlayerLauncher.launchInVLC(download.download);
+              },
+              trailingIcon: CupertinoIcons.play_circle,
+              child: const Text('Play in VLC'),
+            ),
+          ],
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleQueueDownload(download);
+            },
+            trailingIcon: CupertinoIcons.cloud_download,
+            child: const Text('Download'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDownloadAction(download);
+            },
+            trailingIcon: CupertinoIcons.link,
+            child: const Text('Copy Link'),
+          ),
+          CupertinoContextMenuAction(
+            onPressed: () {
+              Navigator.pop(context);
+              _handleDeleteDownload(download);
+            },
+            isDestructiveAction: true,
+            trailingIcon: CupertinoIcons.trash,
+            child: const Text('Delete'),
+          ),
+        ],
+        child: cardContent,
+      );
+    }
+
+    return TvFocusScrollWrapper(child: cardContent);
   }
 
   Future<void> _handlePlayMultiFileTorrent(RDTorrent torrent) async {
@@ -3730,89 +3846,288 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
     }
   }
 
-  void _showAddMagnetDialog() {
+  void _showAddContentDialog() {
     // Auto-paste if clipboard has magnet link
     _autoPasteMagnetLink();
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Add Magnet Link'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF334155),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFF475569).withValues(alpha: 0.3),
-                ),
-              ),
-              child: TextField(
-                controller: _magnetController,
-                decoration: const InputDecoration(
-                  hintText: 'Paste magnet link here...',
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(16),
-                ),
-                maxLines: 3,
-                style: const TextStyle(color: Colors.white),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
+      builder: (context) => DefaultTabController(
+        length: 3,
+        child: AlertDialog(
+          title: const Text('Add Content'),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 0),
+          content: SizedBox(
+            width: double.maxFinite,
+            height: 300,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFF475569)),
-                    ),
-                    child: const Text('Cancel'),
-                  ),
+                const TabBar(
+                  tabs: [
+                    Tab(text: 'Magnet'),
+                    Tab(text: 'Torrent'),
+                    Tab(text: 'Link'),
+                  ],
                 ),
-                const SizedBox(width: 12),
                 Expanded(
-                  child: OutlinedButton(
-                    onPressed: _showAdvancedMagnetDialog,
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Color(0xFF475569)),
-                    ),
-                    child: const Text('Advanced'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton(
-                    onPressed: _isAddingMagnet
-                        ? null
-                        : _addMagnetWithDefaultSelection,
-                    style: FilledButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: const Color(0xFF6366F1),
-                    ),
-                    child: _isAddingMagnet
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
+                  child: TabBarView(
+                    children: [
+                      // Magnet Tab
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF334155),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFF475569).withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _magnetController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Paste magnet link here...',
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.all(16),
+                                ),
+                                maxLines: 3,
+                                style: const TextStyle(color: Colors.white),
+                              ),
                             ),
-                          )
-                        : const Text('Add'),
+                            const Spacer(),
+                            Row(
+                              children: [
+                                Expanded(
+                                  child: OutlinedButton(
+                                    onPressed: _showAdvancedMagnetDialog,
+                                    child: const Text('Advanced'),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: FilledButton(
+                                    onPressed: _isAddingMagnet ? null : _addMagnetWithDefaultSelection,
+                                    backgroundColor: const Color(0xFF6366F1),
+                                    child: const Text('Add'),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Torrent Tab
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            const Icon(Icons.upload_file_rounded, size: 48, color: Colors.indigo),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Upload a .torrent file to Real-Debrid',
+                              textAlign: TextAlign.center,
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _pickAndUploadTorrent,
+                                backgroundColor: const Color(0xFF6366F1),
+                                child: const Text('Pick File'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Link Tab (Unrestrict)
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF334155),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: const Color(0xFF475569).withValues(alpha: 0.3),
+                                ),
+                              ),
+                              child: TextField(
+                                controller: _linkController,
+                                decoration: const InputDecoration(
+                                  hintText: 'Paste hoster link (e.g. Nitroflare)...',
+                                  border: InputBorder.none,
+                                  contentPadding: EdgeInsets.all(16),
+                                ),
+                                maxLines: 3,
+                                style: const TextStyle(color: Colors.white),
+                              ),
+                            ),
+                            const Spacer(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: FilledButton(
+                                onPressed: _unrestrictPastedLink,
+                                backgroundColor: const Color(0xFF6366F1),
+                                child: const Text('Unrestrict'),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
             ),
           ],
         ),
       ),
     );
   }
+
+  Future<void> _pickAndUploadTorrent() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['torrent'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        final filePath = result.files.single.path!;
+        final fileBytes = await File(filePath).readAsBytes();
+        
+        if (_apiKey == null || _apiKey!.isEmpty) {
+          _showErrorSnack('API Key not found');
+          return;
+        }
+
+        Navigator.of(context).pop(); // Close dialog
+        _showLoadingDialog('Uploading torrent...');
+
+        final response = await DebridService.addTorrent(_apiKey!, fileBytes);
+        final id = response['id'].toString();
+
+        if (mounted) Navigator.of(context).pop(); // Close loading
+
+        // Show added snack and maybe open options
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Torrent uploaded successfully')),
+        );
+        _refreshTorrents();
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      _showErrorSnack('Failed to upload torrent: $e');
+    }
+  }
+
+  Future<void> _unrestrictPastedLink() async {
+    final link = _linkController.text.trim();
+    if (link.isEmpty) return;
+
+    if (_apiKey == null || _apiKey!.isEmpty) {
+      _showErrorSnack('API Key not found');
+      return;
+    }
+
+    Navigator.of(context).pop(); // Close dialog
+    _showLoadingDialog('Unrestricting link...');
+
+    try {
+      final response = await DebridService.unrestrictLink(_apiKey!, link);
+      final downloadUrl = response['download']?.toString() ?? '';
+      
+      if (mounted) Navigator.of(context).pop(); // Close loading
+
+      if (downloadUrl.isNotEmpty) {
+        _linkController.clear();
+        _showUnrestrictSuccessDialog(response);
+        _refreshDownloads();
+      } else {
+        _showErrorSnack('Failed to unrestrict link');
+      }
+    } catch (e) {
+      if (mounted) Navigator.of(context).pop();
+      _showErrorSnack('Error: $e');
+    }
+  }
+
+  void _showUnrestrictSuccessDialog(Map<String, dynamic> response) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Link Unrestricted'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Filename: ${response['filename']}'),
+            const SizedBox(height: 8),
+            Text('Size: ${Formatters.formatFileSize(response['filesize'] as int? ?? 0)}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          FilledButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              VideoPlayerLauncher.push(context, VideoPlayerLaunchArgs(
+                videoUrl: response['download'].toString(),
+                title: response['filename'].toString(),
+              ));
+            },
+            child: const Text('Play'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showLoadingDialog(String message) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => Center(
+        child: Container(
+          padding: const EdgeInsets.all(24),
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E293B),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const CircularProgressIndicator(),
+              const SizedBox(height: 16),
+              Text(message, style: const TextStyle(color: Colors.white)),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showErrorSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showAddMagnetDialog() {
 
   Future<void> _autoPasteMagnetLink() async {
     final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);

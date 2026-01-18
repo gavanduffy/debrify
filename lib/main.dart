@@ -33,11 +33,22 @@ import 'widgets/auto_launch_overlay.dart';
 import 'widgets/window_drag_area.dart';
 import 'widgets/mobile_floating_nav.dart';
 import 'widgets/tv_sidebar_nav.dart';
+import 'utils/theme_config.dart';
 
 final WindowListener _windowsFullscreenListener = _WindowsFullscreenListener();
 
+// Theme mode notifier
+final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.system);
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Load theme preference
+  final themeStr = await StorageService.getThemeMode();
+  themeNotifier.value = ThemeMode.values.firstWhere(
+    (e) => e.name == themeStr,
+    orElse: () => ThemeMode.system,
+  );
 
   if (!kIsWeb && Platform.isWindows) {
     await windowManager.ensureInitialized();
@@ -139,11 +150,17 @@ class DebrifyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Debrify',
-      debugShowCheckedModeBanner: false,
-      // Performance optimizations for TV with TV-aware text scaling
-      builder: (context, child) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: themeNotifier,
+      builder: (context, currentMode, _) {
+        return MaterialApp(
+          title: 'Debrify',
+          debugShowCheckedModeBanner: false,
+          themeMode: currentMode,
+          theme: ThemeConfig.lightTheme,
+          darkTheme: ThemeConfig.darkTheme,
+          // Performance optimizations for TV with TV-aware text scaling
+          builder: (context, child) {
         // Use FutureBuilder to handle async TV detection
         return FutureBuilder<bool>(
           future: AndroidNativeDownloader.isTelevision(),
@@ -172,159 +189,6 @@ class DebrifyApp extends StatelessWidget {
       scrollBehavior: const MaterialScrollBehavior().copyWith(
         // Optimize scroll physics for TV
         physics: const ClampingScrollPhysics(),
-      ),
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6366F1), // Indigo
-          onPrimary: Colors.white,
-          primaryContainer: Color(0xFF3730A3),
-          onPrimaryContainer: Colors.white,
-          secondary: Color(0xFF10B981), // Emerald
-          onSecondary: Colors.white,
-          secondaryContainer: Color(0xFF065F46),
-          onSecondaryContainer: Colors.white,
-          tertiary: Color(0xFFF59E0B), // Amber
-          onTertiary: Colors.white,
-          tertiaryContainer: Color(0xFF92400E),
-          onTertiaryContainer: Colors.white,
-          surface: Color(0xFF0F172A), // Slate 900
-          onSurface: Colors.white,
-          surfaceContainerHighest: Color(0xFF1E293B), // Slate 800
-          surfaceContainerHigh: Color(0xFF334155), // Slate 700
-          surfaceContainer: Color(0xFF475569), // Slate 600
-          surfaceContainerLow: Color(0xFF64748B), // Slate 500
-          surfaceContainerLowest: Color(0xFF94A3B8), // Slate 400
-          background: Color(0xFF020617), // Slate 950
-          onBackground: Colors.white,
-          error: Color(0xFFEF4444), // Red 500
-          onError: Colors.white,
-          errorContainer: Color(0xFF7F1D1D), // Red 900
-          onErrorContainer: Colors.white,
-          outline: Color(0xFF475569), // Slate 600
-          outlineVariant: Color(0xFF334155), // Slate 700
-          shadow: Color(0xFF000000),
-          scrim: Color(0xFF000000),
-          inverseSurface: Color(0xFFF8FAFC), // Slate 50
-          onInverseSurface: Color(0xFF0F172A), // Slate 900
-          inversePrimary: Color(0xFF818CF8), // Indigo 400
-          surfaceTint: Color(0xFF6366F1), // Indigo 500
-        ),
-        textTheme: GoogleFonts.interTextTheme(
-          const TextTheme(
-            displayLarge: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-            ),
-            displayMedium: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.25,
-            ),
-            displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-            headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-            headlineMedium: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-            headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-            bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-            bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-            labelLarge: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.1,
-            ),
-            labelMedium: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-            labelSmall: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 8,
-          shadowColor: Colors.black.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          color: const Color(0xFF1E293B),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 4,
-            shadowColor: Colors.black.withValues(alpha: 0.3),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            side: const BorderSide(color: Color(0xFF475569)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF334155),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          backgroundColor: Color(0xFF0F172A),
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        drawerTheme: const DrawerThemeData(backgroundColor: Color(0xFF1E293B)),
-        snackBarTheme: SnackBarThemeData(
-          backgroundColor: const Color(0xFF1E293B),
-          contentTextStyle: const TextStyle(color: Colors.white),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          behavior: SnackBarBehavior.floating,
-          elevation: 8,
-        ),
       ),
       home: const AppInitializer(),
     );

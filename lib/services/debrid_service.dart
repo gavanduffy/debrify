@@ -283,6 +283,35 @@ class DebridService {
     }
   }
 
+  // Add torrent file to Real Debrid
+  static Future<Map<String, dynamic>> addTorrent(String apiKey, List<int> fileBytes) async {
+    try {
+      final baseUrl = await _getBaseUrl();
+      final uri = Uri.parse('$baseUrl/torrents/addTorrent');
+      
+      final request = http.MultipartRequest('PUT', uri)
+        ..headers['Authorization'] = 'Bearer $apiKey'
+        ..files.add(http.MultipartFile.fromBytes(
+          'file',
+          fileBytes,
+          filename: 'torrent_file.torrent',
+        ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 201) {
+        return json.decode(response.body);
+      } else if (response.statusCode == 401) {
+        throw Exception('Invalid API key');
+      } else {
+        throw Exception('Failed to add torrent: ${response.statusCode}');
+      }
+    } catch (e) {
+      throw Exception('Network error: $e');
+    }
+  }
+
   // Get torrent info
   static Future<Map<String, dynamic>> getTorrentInfo(String apiKey, String torrentId) async {
     try {

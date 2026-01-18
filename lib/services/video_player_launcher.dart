@@ -19,6 +19,8 @@ import '../services/torbox_service.dart';
 import '../services/pikpak_api_service.dart';
 import '../utils/series_parser.dart';
 
+import 'package:url_launcher/url_launcher.dart';
+
 final Map<String, String> _resolvedStreamCache = <String, String>{};
 final Map<String, String> _redirectCache = <String, String>{};
 
@@ -249,6 +251,28 @@ class VideoPlayerLauncher {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => args.toWidget()),
     );
+  }
+
+  /// Launch external player (VLC) with the given URL
+  static Future<bool> launchInVLC(String url) async {
+    try {
+      // VLC for iOS uses vlc:// prefix. VLC for Android uses intent-based or vlc://
+      // For cross-platform, vlc-x-callback:// or just vlc:// usually works if handled by the OS
+      final vlcUri = Uri.parse('vlc://$url');
+      if (await canLaunchUrl(vlcUri)) {
+        return await launchUrl(vlcUri, mode: LaunchMode.externalApplication);
+      }
+      
+      // Fallback: try opening as a regular URL and hope the OS picks it up if VLC is default
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        return await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
+      return false;
+    } catch (e) {
+      debugPrint('Error launching VLC: $e');
+      return false;
+    }
   }
 
   static Future<bool> _isAndroidTv(bool Function()? override) async {

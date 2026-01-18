@@ -136,6 +136,10 @@ class StorageService {
   static const String _playlistViewModesKey = 'playlist_view_modes_v1';
   static const String _playlistFavoritesKey = 'playlist_favorites_v1';
   static const String _onboardingCompleteKey = 'initial_setup_complete_v1';
+  static const String _themeModeKey = 'theme_mode_v1';
+  static const String _dontAskUncachedTorrentKey = 'dont_ask_uncached_torrent_v1';
+  static const String _autoAddUncachedTorrentKey = 'auto_add_uncached_torrent_v1';
+  static const String _autoNavigateUncachedTorrentKey = 'auto_navigate_uncached_torrent_v1';
 
   // Torrent Search History
   static const String _torrentSearchHistoryKey = 'torrent_search_history_v1';
@@ -280,6 +284,48 @@ class StorageService {
   static Future<void> setInitialSetupComplete(bool value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_onboardingCompleteKey, value);
+  }
+
+  // Theme methods
+  static Future<String> getThemeMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(_themeModeKey) ?? 'system';
+  }
+
+  static Future<void> saveThemeMode(String themeMode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_themeModeKey, themeMode);
+  }
+
+  // Uncached torrent preferences
+  static Future<bool> getDontAskUncachedTorrent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_dontAskUncachedTorrentKey) ?? false;
+  }
+
+  static Future<void> setDontAskUncachedTorrent(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_dontAskUncachedTorrentKey, value);
+  }
+
+  static Future<bool> getAutoAddUncachedTorrent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoAddUncachedTorrentKey) ?? false;
+  }
+
+  static Future<void> setAutoAddUncachedTorrent(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoAddUncachedTorrentKey, value);
+  }
+
+  static Future<bool> getAutoNavigateUncachedTorrent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_autoNavigateUncachedTorrentKey) ?? false;
+  }
+
+  static Future<void> setAutoNavigateUncachedTorrent(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_autoNavigateUncachedTorrentKey, value);
   }
 
   // File Selection methods

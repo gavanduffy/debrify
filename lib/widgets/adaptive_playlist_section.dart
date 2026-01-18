@@ -16,6 +16,7 @@ class AdaptivePlaylistSection extends StatefulWidget {
   final Map<String, Map<String, dynamic>> progressMap;
   final Set<String> favoriteKeys;
   final void Function(Map<String, dynamic> item) onItemPlay;
+  final void Function(Map<String, dynamic> item)? onItemPlayVLC; // Add this
   final void Function(Map<String, dynamic> item) onItemView;
   final void Function(Map<String, dynamic> item) onItemDelete;
   final void Function(Map<String, dynamic> item)? onItemClearProgress;
@@ -34,6 +35,7 @@ class AdaptivePlaylistSection extends StatefulWidget {
     required this.progressMap,
     this.favoriteKeys = const {},
     required this.onItemPlay,
+    this.onItemPlayVLC, // Add this
     required this.onItemView,
     required this.onItemDelete,
     this.onItemClearProgress,
@@ -244,6 +246,7 @@ class _AdaptivePlaylistSectionState extends State<AdaptivePlaylistSection> {
         progressData: progressData,
         isFavorited: widget.favoriteKeys.contains(dedupeKey),
         onPlay: () => widget.onItemPlay(item),
+        onPlayVLC: widget.onItemPlayVLC != null ? () => widget.onItemPlayVLC!(item) : null,
         onView: () => widget.onItemView(item),
         onDelete: () => widget.onItemDelete(item),
         onClearProgress: widget.onItemClearProgress != null ? () => widget.onItemClearProgress!(item) : null,

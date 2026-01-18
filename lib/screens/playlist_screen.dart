@@ -1546,6 +1546,54 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
     }
   }
 
+  Future<void> _playItemInVLC(Map<String, dynamic> item) async {
+    final provider = (item['provider'] as String? ?? 'realdebrid').toLowerCase();
+    final String kind = (item['kind'] as String?) ?? 'single';
+
+    if (kind != 'single') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('VLC playback is currently only supported for single-file items.')),
+      );
+      return;
+    }
+
+    if (provider == 'realdebrid') {
+      final url = item['url'] as String?;
+      if (url != null && url.isNotEmpty) {
+        VideoPlayerLauncher.launchInVLC(url);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('VLC Link not found for this item.')),
+        );
+      }
+    } else if (provider == 'torbox') {
+      final String? apiKey = await StorageService.getTorboxApiKey();
+      if (apiKey == null || apiKey.isEmpty) return;
+
+      final int? torrentId = _asInt(item['torboxTorrentId']);
+      final int? fileId = _asInt(item['torboxFileId']);
+
+      if (torrentId != null && fileId != null) {
+        try {
+          final streamUrl = await TorboxService.requestFileDownloadLink(
+            apiKey: apiKey,
+            torrentId: torrentId,
+            fileId: fileId,
+          );
+          VideoPlayerLauncher.launchInVLC(streamUrl);
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Failed to get VLC link: $e')),
+          );
+        }
+      }
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('VLC playback not supported for this provider yet.')),
+      );
+    }
+  }
+
   Future<void> _viewItem(Map<String, dynamic> item) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
@@ -1797,6 +1845,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                               progressMap: _progressMap,
                               favoriteKeys: _favoriteKeys,
                               onItemPlay: _playItem,
+                              onItemPlayVLC: _playItemInVLC,
                               onItemView: _viewItem,
                               onItemDelete: _removeItem,
                               onItemClearProgress: _clearPlaylistProgress,
@@ -1827,6 +1876,7 @@ class _PlaylistScreenState extends State<PlaylistScreen> {
                             progressMap: _progressMap,
                             favoriteKeys: _favoriteKeys,
                             onItemPlay: _playItem,
+                            onItemPlayVLC: _playItemInVLC,
                             onItemView: _viewItem,
                             onItemDelete: _removeItem,
                             onItemClearProgress: _clearPlaylistProgress,

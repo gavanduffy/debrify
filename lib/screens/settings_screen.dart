@@ -4,7 +4,7 @@ import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../services/main_page_bridge.dart';
-
+import '../main.dart';
 import '../services/account_service.dart';
 import '../services/download_service.dart';
 import '../services/storage_service.dart';
@@ -206,6 +206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       onOpenDebrifyTvSettings: _openDebrifyTvSettings,
       onOpenPikPakSettings: _openPikPakSettings,
       onOpenStartupSettings: _openStartupSettings,
+      onOpenThemeSettings: _changeTheme,
       onOpenEngineImportSettings: _openEngineImportSettings,
       onOpenStremioAddonsSettings: _openStremioAddonsSettings,
       onClearDownloads: _clearDownloadData,
@@ -282,12 +283,42 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
-  Future<void> _openStremioAddonsSettings() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const StremioAddonsPage()));
-    if (!mounted) return;
-    setState(() {});
+  Future<void> _changeTheme() async {
+    final currentTheme = themeNotifier.value;
+    final theme = await showDialog<ThemeMode>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Select Theme'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            RadioListTile<ThemeMode>(
+              title: const Text('System Default'),
+              value: ThemeMode.system,
+              groupValue: currentTheme,
+              onChanged: (val) => Navigator.pop(context, val),
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Light'),
+              value: ThemeMode.light,
+              groupValue: currentTheme,
+              onChanged: (val) => Navigator.pop(context, val),
+            ),
+            RadioListTile<ThemeMode>(
+              title: const Text('Dark'),
+              value: ThemeMode.dark,
+              groupValue: currentTheme,
+              onChanged: (val) => Navigator.pop(context, val),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (theme != null) {
+      themeNotifier.value = theme;
+      await StorageService.setThemeMode(theme.name);
+    }
   }
 
   Future<void> _openRealDebridSettings() async {
@@ -456,6 +487,7 @@ class _SettingsLayout extends StatelessWidget {
   final Future<void> Function() onOpenDebrifyTvSettings;
   final Future<void> Function() onOpenPikPakSettings;
   final Future<void> Function() onOpenStartupSettings;
+  final Future<void> Function() onOpenThemeSettings;
   final Future<void> Function() onOpenEngineImportSettings;
   final Future<void> Function() onOpenStremioAddonsSettings;
   final Future<void> Function() onClearDownloads;
@@ -472,6 +504,7 @@ class _SettingsLayout extends StatelessWidget {
     required this.onOpenDebrifyTvSettings,
     required this.onOpenPikPakSettings,
     required this.onOpenStartupSettings,
+    required this.onOpenThemeSettings,
     required this.onOpenEngineImportSettings,
     required this.onOpenStremioAddonsSettings,
     required this.onClearDownloads,
@@ -553,6 +586,12 @@ class _SettingsLayout extends StatelessWidget {
           _SettingsSection(
             title: 'General',
             children: [
+              _SettingsTile(
+                icon: Icons.palette_rounded,
+                title: 'Theme',
+                subtitle: 'Choose between Light, Dark, or System mode',
+                onTap: onOpenThemeSettings,
+              ),
               _SettingsTile(
                 icon: Icons.rocket_launch_rounded,
                 title: 'Startup',

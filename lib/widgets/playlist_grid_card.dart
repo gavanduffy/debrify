@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 
 /// Portrait playlist card optimized for grid layouts on desktop/tablet/mobile.
@@ -16,6 +18,7 @@ class PlaylistGridCard extends StatefulWidget {
   final Map<String, dynamic>? progressData;
   final bool isFavorited;
   final VoidCallback onPlay;
+  final void Function()? onPlayVLC; // Add this
   final VoidCallback onView;
   final VoidCallback onDelete;
   final VoidCallback? onClearProgress;
@@ -29,6 +32,7 @@ class PlaylistGridCard extends StatefulWidget {
     this.progressData,
     this.isFavorited = false,
     required this.onPlay,
+    this.onPlayVLC, // Add this
     required this.onView,
     required this.onDelete,
     this.onClearProgress,
@@ -87,6 +91,15 @@ class _PlaylistGridCardState extends State<PlaylistGridCard> {
                 widget.onPlay();
               },
             ),
+            if (widget.onPlayVLC != null)
+              ListTile(
+                leading: const Icon(Icons.play_circle_outline, color: Colors.orange),
+                title: const Text('Play in VLC', style: TextStyle(color: Colors.white, fontSize: 18)),
+                onTap: () {
+                  Navigator.pop(context);
+                  widget.onPlayVLC?.call();
+                },
+              ),
             ListTile(
               leading: const Icon(Icons.folder_open, color: Color(0xFF6366F1)),
               title: const Text('View Files', style: TextStyle(color: Colors.white, fontSize: 18)),
@@ -174,24 +187,155 @@ class _PlaylistGridCardState extends State<PlaylistGridCard> {
 
     final bool isActive = _isHovered || _isFocused;
 
-    // Dynamic font size based on screen width
-    final screenWidth = MediaQuery.of(context).size.width;
-    final double titleFontSize;
-    final int maxLines;
+    final cardBody = AnimatedScale(
+      scale: isActive ? 1.08 : 1.0,
+      duration: const Duration(milliseconds: 150), // Snappier
+      curve: Curves.easeOutCubic, // Smoother deceleration
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOutCubic,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: isActive
+              ? [
+                  // Subtle glow effect
+                  BoxShadow(
+                    color: const Color(0xFFE50914).withValues(alpha: 0.4),
+                    blurRadius: 16,
+                    spreadRadius: 2,
+                  ),
+                ]
+              : null,
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Stack(
+            children: [
+              // Poster background
+              _buildPoster(posterUrl),
 
-    if (screenWidth > 800) {
-      // Desktop/tablet: readable font, 4 lines for long titles
-      titleFontSize = 13;
-      maxLines = 4;
-    } else if (screenWidth > 500) {
-      // Larger phones: medium font, 3 lines
-      titleFontSize = 13;
-      maxLines = 3;
-    } else {
-      // Standard phones: larger font for better readability, 3 lines
-      titleFontSize = 14;
-      maxLines = 3;
-    }
+              // Gradient overlay (darker at bottom for text readability)
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black.withValues(alpha: 0.5),
+                        Colors.black.withValues(alpha: 0.9),
+                      ],
+                      stops: const [0.2, 0.5, 1.0],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Provider badge (top left)
+              if (provider != null)
+                Positioned(
+                  top: 8,
+                  left: 8,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE50914),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      _prettifyProvider(provider),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+
+              // Favorite star badge (top right)
+              if (widget.isFavorited)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: const Icon(
+                      Icons.star,
+                      color: Color(0xFFFFD700),
+                      size: 18,
+                    ),
+                  ),
+                ),
+
+              // Progress indicator (bottom)
+              if (progress != null && progress > 0 && progress < 1.0)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(12),
+                      bottomRight: Radius.circular(12),
+                    ),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      backgroundColor: Colors.white.withValues(alpha: 0.2),
+                      valueColor: const AlwaysStoppedAnimation(Color(0xFFE50914)),
+                      minHeight: 4,
+                    ),
+                  ),
+                ),
+
+              // Title overlay (bottom)
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: progress != null && progress >= 0.05 && progress <= 0.95 ? 20 : 16,
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: titleFontSize,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                    shadows: const [
+                      Shadow(
+                        color: Colors.black,
+                        offset: Offset(0, 1),
+                        blurRadius: 4,
+                      ),
+                    ],
+                  ),
+                  maxLines: maxLines,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+
+              // Focus/hover border with animated opacity
+              if (isActive)
+                Positioned.fill(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: const Color(0xFFE50914),
+                        width: 3,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
 
     return MouseRegion(
       onEnter: (_) => _updateHoverState(true),
@@ -224,158 +368,60 @@ class _PlaylistGridCardState extends State<PlaylistGridCard> {
         child: GestureDetector(
           onTap: () => _showActionMenu(context),
           // Use AnimatedScale for GPU-accelerated smooth scaling
-          child: AnimatedScale(
-            scale: isActive ? 1.08 : 1.0,
-            duration: const Duration(milliseconds: 150), // Snappier
-            curve: Curves.easeOutCubic, // Smoother deceleration
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 150),
-              curve: Curves.easeOutCubic,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                boxShadow: isActive
-                    ? [
-                        // Subtle glow effect
-                        BoxShadow(
-                          color: const Color(0xFFE50914).withValues(alpha: 0.4),
-                          blurRadius: 16,
-                          spreadRadius: 2,
-                        ),
-                      ]
-                    : null,
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Stack(
-                  children: [
-                    // Poster background
-                    _buildPoster(posterUrl),
-
-                    // Gradient overlay (darker at bottom for text readability)
-                    Positioned.fill(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Colors.transparent,
-                              Colors.black.withValues(alpha: 0.5),
-                              Colors.black.withValues(alpha: 0.9),
-                            ],
-                            stops: const [0.2, 0.5, 1.0],
-                          ),
-                        ),
-                      ),
+          child: defaultTargetPlatform == TargetPlatform.iOS
+              ? CupertinoContextMenu(
+                  actions: <Widget>[
+                    CupertinoContextMenuAction(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onPlay();
+                      },
+                      trailingIcon: CupertinoIcons.play_fill,
+                      child: const Text('Play'),
                     ),
-
-                    // Provider badge (top left)
-                    if (provider != null)
-                      Positioned(
-                        top: 8,
-                        left: 8,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFE50914),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            _prettifyProvider(provider),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
+                    if (widget.onPlayVLC != null)
+                      CupertinoContextMenuAction(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          widget.onPlayVLC?.call();
+                        },
+                        trailingIcon: CupertinoIcons.play_circle,
+                        child: const Text('Play in VLC'),
                       ),
-
-                    // Favorite star badge (top right)
-                    if (widget.isFavorited)
-                      Positioned(
-                        top: 8,
-                        right: 8,
-                        child: Container(
-                          padding: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.6),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Icon(
-                            Icons.star,
-                            color: Color(0xFFFFD700),
-                            size: 18,
-                          ),
-                        ),
-                      ),
-
-                    // Progress indicator (bottom)
-                    if (progress != null && progress > 0 && progress < 1.0)
-                      Positioned(
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        child: ClipRRect(
-                          borderRadius: const BorderRadius.only(
-                            bottomLeft: Radius.circular(12),
-                            bottomRight: Radius.circular(12),
-                          ),
-                          child: LinearProgressIndicator(
-                            value: progress,
-                            backgroundColor: Colors.white.withValues(alpha: 0.2),
-                            valueColor: const AlwaysStoppedAnimation(Color(0xFFE50914)),
-                            minHeight: 4,
-                          ),
-                        ),
-                      ),
-
-                    // Title overlay (bottom)
-                    Positioned(
-                      left: 12,
-                      right: 12,
-                      bottom: progress != null && progress >= 0.05 && progress <= 0.95 ? 20 : 16,
-                      child: Text(
-                        title,
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: titleFontSize,
-                          fontWeight: FontWeight.w600,
-                          height: 1.35,
-                          shadows: const [
-                            Shadow(
-                              color: Colors.black,
-                              offset: Offset(0, 1),
-                              blurRadius: 4,
-                            ),
-                          ],
-                        ),
-                        maxLines: maxLines,
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                    CupertinoContextMenuAction(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onView();
+                      },
+                      trailingIcon: CupertinoIcons.folder,
+                      child: const Text('View Files'),
                     ),
-
-                    // Focus/hover border with animated opacity
-                    if (isActive)
-                      Positioned.fill(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: const Color(0xFFE50914),
-                              width: 3,
-                            ),
-                          ),
-                        ),
+                    if (widget.onToggleFavorite != null)
+                      CupertinoContextMenuAction(
+                        onPressed: () {
+                          Navigator.pop(context);
+                          widget.onToggleFavorite?.call();
+                        },
+                        trailingIcon: widget.isFavorited ? CupertinoIcons.star_fill : CupertinoIcons.star,
+                        child: Text(widget.isFavorited ? 'Remove Favorite' : 'Add Favorite'),
                       ),
+                    CupertinoContextMenuAction(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        widget.onDelete();
+                      },
+                      isDestructiveAction: true,
+                      trailingIcon: CupertinoIcons.trash,
+                      child: const Text('Delete'),
+                    ),
                   ],
-                ),
-              ),
-            ),
-          ),
+                  child: cardBody,
+                )
+              : cardBody,
         ),
       ),
     );
+  }
   }
 
   Widget _buildPoster(String? posterUrl) {
