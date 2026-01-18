@@ -52,6 +52,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   String _appVersion = '';
 
+  void Function() get _openStremioAddonsSettings => () {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const StremioAddonsSettings(),
+      ),
+    );
+  };
+
+  void Function() get _openStremioAddonsSettings => () {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => const StremioAddonsSettings(),
+      ),
+    );
+  };
+
   @override
   void initState() {
     super.initState();

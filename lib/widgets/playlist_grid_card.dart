@@ -49,7 +49,7 @@ class _PlaylistGridCardState extends State<PlaylistGridCard> {
   bool _isHovered = false;
   bool _isFocused = false;
 
-  double get titleFontSize => 13;
+  double get titleFontSize => 16.0;
 
   int get maxLines => 2;
 

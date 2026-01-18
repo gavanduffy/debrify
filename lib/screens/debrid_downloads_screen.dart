@@ -4541,6 +4541,100 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
         trimmedLink.startsWith('https://');
   }
 
+  Future<void> _addMagnetWithSelection(String magnetLink, String mode) async {
+    try {
+      switch (mode) {
+        case 'smart':
+          await widget.realDebridClient.addMagnetLink(magnetLink);
+          break;
+        case 'largest':
+          await widget.realDebridClient.addMagnetLink(magnetLink);
+          break;
+        case 'video':
+          await widget.realDebridClient.addMagnetLink(magnetLink);
+          break;
+        case 'all':
+          await widget.realDebridClient.addMagnetLink(magnetLink);
+          break;
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Magnet link added successfully')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error adding magnet link: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _autoPasteLink() async {
+    try {
+      final ClipboardData? data = await Clipboard.getData('text/plain');
+      if (data != null && data.text != null) {
+        final String clipboardText = data.text!;
+        if (clipboardText.startsWith('magnet:') || clipboardText.startsWith('http')) {
+          await _addMagnetLink(clipboardText);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Link pasted and added successfully')),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Invalid link in clipboard')),
+            );
+          }
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error pasting link: $e')),
+        );
+      }
+    }
+  }
+
+  Widget _buildFileBrowserContent(List<RealDebridFile>? files, bool isLoading) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    
+    if (files == null || files.isEmpty) {
+      return const Center(
+        child: Text('No files available'),
+      );
+    }
+    
+    return ListView.builder(
+      itemCount: files.length,
+      itemBuilder: (context, index) {
+        final file = files[index];
+        return ListTile(
+          title: Text(file.filename ?? 'Unknown'),
+          subtitle: Text('${file.filesize ?? 0} bytes'),
+          leading: Checkbox(
+            value: _selectedFiles.contains(file),
+            onChanged: (bool? selected) {
+              setState(() {
+                if (selected ?? false) {
+                  _selectedFiles.add(file);
+                } else {
+                  _selectedFiles.remove(file);
+                }
+              });
+            },
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _addLink() async {
     final link = _linkController.text.trim();
     if (link.isEmpty) {
