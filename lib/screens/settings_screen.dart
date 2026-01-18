@@ -60,18 +60,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   };
 
-  void Function() get _openStremioAddonsSettings => () {
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => const StremioAddonsSettings(),
-      ),
-    );
-  };
-
   @override
   void initState() {
     super.initState();
-    _loadSummaries();
+    _loadSettings();
 
     // Register TV sidebar focus handler (tab index 7 = Settings)
     MainPageBridge.registerTvContentFocusHandler(7, () {
@@ -86,7 +78,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     super.dispose();
   }
 
-  Future<void> _loadSummaries() async {
+  Future<void> _loadSettings() async {
     setState(() {
       _loading = true;
     });
@@ -253,7 +245,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const PikPakSettingsPage()),
     );
     if (!mounted) return;
-    await _loadSummaries();
+    await _loadSettings();
     if (loggedOut == true) {
       _focusFirstCard();
     }
@@ -350,7 +342,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const RealDebridSettingsPage()),
     );
     if (!mounted) return;
-    await _loadSummaries();
+    await _loadSettings();
     if (loggedOut == true) {
       _focusFirstCard();
     }
@@ -361,7 +353,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       MaterialPageRoute(builder: (_) => const TorboxSettingsPage()),
     );
     if (!mounted) return;
-    await _loadSummaries();
+    await _loadSettings();
     if (loggedOut == true) {
       _focusFirstCard();
     }
@@ -486,7 +478,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
 
-    await _loadSummaries();
+    await _loadSettings();
   }
 
   DateTime? _tryParseDate(String value) {
