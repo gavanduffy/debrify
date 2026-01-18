@@ -3909,8 +3909,12 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: FilledButton(
-                                    onPressed: _isAddingMagnet ? null : _addMagnetWithDefaultSelection,
-                                    backgroundColor: const Color(0xFF6366F1),
+                                    onPressed: _isAddingMagnet
+                                        ? null
+                                        : _addMagnetWithDefaultSelection,
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: const Color(0xFF6366F1),
+                                    ),
                                     child: const Text('Add'),
                                   ),
                                 ),
@@ -3936,7 +3940,9 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
                               width: double.infinity,
                               child: FilledButton(
                                 onPressed: _pickAndUploadTorrent,
-                                backgroundColor: const Color(0xFF6366F1),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6366F1),
+                                ),
                                 child: const Text('Pick File'),
                               ),
                             ),
@@ -3972,7 +3978,9 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
                               width: double.infinity,
                               child: FilledButton(
                                 onPressed: _unrestrictPastedLink,
-                                backgroundColor: const Color(0xFF6366F1),
+                                style: FilledButton.styleFrom(
+                                  backgroundColor: const Color(0xFF6366F1),
+                                ),
                                 child: const Text('Unrestrict'),
                               ),
                             ),
@@ -4024,7 +4032,7 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Torrent uploaded successfully')),
         );
-        _refreshTorrents();
+        await _fetchTorrents(_apiKey!, reset: true);
       }
     } catch (e) {
       if (mounted) Navigator.of(context).pop();
@@ -4053,7 +4061,7 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
       if (downloadUrl.isNotEmpty) {
         _linkController.clear();
         _showUnrestrictSuccessDialog(response);
-        _refreshDownloads();
+        await _fetchDownloads(_apiKey!, reset: true);
       } else {
         _showErrorSnack('Failed to unrestrict link');
       }
@@ -4127,7 +4135,11 @@ class _DebridDownloadsScreenState extends State<DebridDownloadsScreen> {
     );
   }
 
+  // Legacy entrypoint; keep for compatibility with older UI code.
+  // The actual UI uses _showAddContentDialog().
   void _showAddMagnetDialog() {
+    _showAddContentDialog();
+  }
 
   Future<void> _autoPasteMagnetLink() async {
     final clipboardData = await Clipboard.getData(Clipboard.kTextPlain);

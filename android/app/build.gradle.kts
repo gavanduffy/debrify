@@ -17,7 +17,8 @@ if (keystorePropertiesFile.exists()) {
 
 android {
     namespace = "com.debrify.app"
-    compileSdk = flutter.compileSdkVersion
+    // Required by flutter_sharing_intent
+    compileSdk = 36
     ndkVersion = "27.0.12077973"
 
     compileOptions {

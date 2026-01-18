@@ -283,6 +283,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  Future<void> _openStremioAddonsSettings() async {
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const StremioAddonsPage()));
+    if (!mounted) return;
+    setState(() {});
+  }
+
   Future<void> _changeTheme() async {
     final currentTheme = themeNotifier.value;
     final theme = await showDialog<ThemeMode>(
@@ -317,7 +325,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (theme != null) {
       themeNotifier.value = theme;
-      await StorageService.setThemeMode(theme.name);
+      await StorageService.saveThemeMode(theme.name);
     }
   }
 

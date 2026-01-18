@@ -49,6 +49,10 @@ class _PlaylistGridCardState extends State<PlaylistGridCard> {
   bool _isHovered = false;
   bool _isFocused = false;
 
+  double get titleFontSize => 13;
+
+  int get maxLines => 2;
+
   void _updateFocusState(bool focused) {
     if (_isFocused != focused) {
       setState(() => _isFocused = focused);

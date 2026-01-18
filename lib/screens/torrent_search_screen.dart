@@ -10970,128 +10970,141 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
                       ]
                     : null,
               ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: IntrinsicHeight(
-            child: Row(
-              children: [
-                // Accent bar on left (like TorrentResultRow)
-                Container(
-                  width: 4,
-                  decoration: BoxDecoration(
-                    color: accentColor,
-                    borderRadius: const BorderRadius.only(
-                      topLeft: Radius.circular(12),
-                      bottomLeft: Radius.circular(12),
-                    ),
-                  ),
-                ),
-                // Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        // Title
-                        Text(
-                          torrent.displayTitle,
-                          style: const TextStyle(
-                            color: textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w500,
-                            height: 1.3,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: IntrinsicHeight(
+                  child: Row(
+                    children: [
+                      // Accent bar on left (like TorrentResultRow)
+                      Container(
+                        width: 4,
+                        decoration: BoxDecoration(
+                          color: accentColor,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(12),
+                            bottomLeft: Radius.circular(12),
                           ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
-                        // Metadata row
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            // Size
-                            if (torrent.sizeBytes > 0)
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
+                      ),
+                      // Content
+                      Expanded(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Title
+                              Text(
+                                torrent.displayTitle,
+                                style: const TextStyle(
+                                  color: textPrimary,
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  height: 1.3,
+                                ),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              // Metadata row
+                              Wrap(
+                                spacing: 8,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
                                 children: [
-                                  Icon(Icons.storage_rounded, size: 12, color: const Color(0xFF60A5FA).withValues(alpha: 0.8)),
-                                  const SizedBox(width: 3),
-                                  Text(
-                                    _formatSizeCompact(torrent.sizeBytes),
-                                    style: const TextStyle(
-                                      color: Color(0xFF60A5FA),
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w500,
+                                  // Size
+                                  if (torrent.sizeBytes > 0)
+                                    Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.storage_rounded,
+                                          size: 12,
+                                          color: const Color(0xFF60A5FA)
+                                              .withValues(alpha: 0.8),
+                                        ),
+                                        const SizedBox(width: 3),
+                                        Text(
+                                          _formatSizeCompact(torrent.sizeBytes),
+                                          style: const TextStyle(
+                                            color: Color(0xFF60A5FA),
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  // Direct/External badge
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 6,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: accentColor.withValues(alpha: 0.2),
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          torrent.isDirectStream
+                                              ? Icons.play_circle_filled_rounded
+                                              : Icons.open_in_new_rounded,
+                                          size: 12,
+                                          color: accentColor,
+                                        ),
+                                        const SizedBox(width: 2),
+                                        Text(
+                                          torrent.isDirectStream
+                                              ? 'Direct'
+                                              : 'External',
+                                          style: TextStyle(
+                                            color: accentColor,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
                                     ),
                                   ),
                                 ],
                               ),
-                            // Direct/External badge
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: accentColor.withValues(alpha: 0.2),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(
-                                    torrent.isDirectStream
-                                        ? Icons.play_circle_filled_rounded
-                                        : Icons.open_in_new_rounded,
-                                    size: 12,
-                                    color: accentColor,
-                                  ),
-                                  const SizedBox(width: 2),
-                                  Text(
-                                    torrent.isDirectStream ? 'Direct' : 'External',
-                                    style: TextStyle(
-                                      color: accentColor,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                // Copy button
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: IconButton(
-                    onPressed: () {
-                      final url = torrent.directUrl;
-                      if (url != null && url.isNotEmpty) {
-                        Clipboard.setData(ClipboardData(text: url));
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('URL copied to clipboard'),
-                            duration: Duration(seconds: 2),
+                            ],
                           ),
-                        );
-                      }
-                    },
-                    icon: const Icon(
-                      Icons.copy_rounded,
-                      size: 18,
-                      color: textSecondary,
-                    ),
+                        ),
+                      ),
+                      // Copy button
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: IconButton(
+                          onPressed: () {
+                            final url = torrent.directUrl;
+                            if (url != null && url.isNotEmpty) {
+                              Clipboard.setData(ClipboardData(text: url));
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('URL copied to clipboard'),
+                                  duration: Duration(seconds: 2),
+                                ),
+                              );
+                            }
+                          },
+                          icon: const Icon(
+                            Icons.copy_rounded,
+                            size: 18,
+                            color: textSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
-          ),
-        ),
+              ),
             ),
           );
         },
@@ -11109,14 +11122,10 @@ class _TorrentSearchScreenState extends State<TorrentSearchScreen>
       i++;
     }
 
-    // For non-TV mode, use GestureDetector with inline card content
-    return GestureDetector(
-      onTap: () {
-        // Navigate to torrent details or perform default action
-        // For now, just log or do nothing since TV has the smart action
-      },
-      child: _buildNonTVCardContent(torrent),
-    );
+    // Keep it compact (0-1 decimals depending on magnitude)
+    final decimals = size >= 100 ? 0 : (size >= 10 ? 1 : 2);
+    final value = size.toStringAsFixed(decimals);
+    return '$value ${suffixes[i]}';
   }
 
   Widget _buildNonTVCardContent(Torrent torrent) {
