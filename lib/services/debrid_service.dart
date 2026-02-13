@@ -4,6 +4,7 @@ import '../models/debrid_download.dart';
 import '../models/rd_torrent.dart';
 import '../models/rd_user.dart';
 import '../models/rd_file_node.dart';
+import '../models/debrid_error.dart';
 import '../services/storage_service.dart';
 import '../utils/file_utils.dart';
 import '../utils/rd_folder_tree_builder.dart';
@@ -445,96 +446,38 @@ class DebridService {
   // Complete workflow: Add magnet, select largest file, get download link
   static Future<Map<String, dynamic>> addTorrentToDebrid(String apiKey, String magnetLink, {String? tempFileSelection}) async {
     try {
-      // Step 1: Add magnet
       final addResponse = await addMagnet(apiKey, magnetLink);
       final torrentId = addResponse['id'];
 
-      // Step 2: Get torrent info
       final torrentInfo = await getTorrentInfo(apiKey, torrentId);
       final files = (torrentInfo['files'] as List<dynamic>? ?? const []);
-
       if (files.isEmpty) {
         await deleteTorrent(apiKey, torrentId);
-        throw Exception('No files found in torrent');
+        throw const DebridException(DebridErrorType.api, 'No files found in torrent');
       }
 
-      // Step 3: Get file selection preference (use temp selection if provided, otherwise use saved preference)
+      if (!_isTorrentReadyForSelection(torrentInfo)) {
+        await deleteTorrent(apiKey, torrentId);
+        throw const DebridException(
+          DebridErrorType.uncached,
+          'This torrent is not cached yet. Try another source.',
+        );
+      }
+
       final fileSelection = tempFileSelection ?? await StorageService.getFileSelection();
       List<int> fileIdsToSelect = [];
 
       if (fileSelection == 'all') {
-        // Select all files
         fileIdsToSelect = files.map((file) => file['id'] as int).toList();
       } else if (fileSelection == 'video') {
-        // Select all video files
         final videoFiles = files.where((file) {
           final fileName = file['name'] as String?;
           return fileName != null && FileUtils.isVideoFile(fileName);
         }).toList();
         fileIdsToSelect = videoFiles.map((file) => file['id'] as int).toList();
-      } else if (fileSelection == 'smart') {
-        // Smart mode: classify by largest file being a playable video, with game flag override
-        // Normalize names using path when needed
-        final normalizedFiles = files.map((file) {
-          if (file is Map && (file['name'] == null || (file['name'] as String?)?.isEmpty == true)) {
-            final path = file['path'] as String?;
-            if (path != null && path.isNotEmpty) {
-              final nameOnly = FileUtils.getFileName(path);
-              return {...file, 'name': nameOnly};
-            }
-          }
-          return file;
-        }).toList();
-
-        bool hasGameFlag = false;
-        for (final f in normalizedFiles) {
-          final name = (f is Map) ? (f['name'] as String? ?? f['path'] as String? ?? '') : '';
-          final lower = name.toLowerCase();
-          if (lower.endsWith('.iso') || lower.endsWith('.exe') || lower.endsWith('.msi') ||
-              lower.endsWith('.dmg') || lower.endsWith('.pkg') || lower.endsWith('.img') ||
-              lower.endsWith('.nrg') || lower.endsWith('.bin') || lower.endsWith('.cue') ||
-              lower.contains('/crack') || lower.contains('\\crack') ||
-              lower.contains('_commonredist')) {
-            hasGameFlag = true;
-            break;
-          }
-        }
-
-        if (hasGameFlag) {
-          // Non-media: select all files
-          fileIdsToSelect = normalizedFiles.map((file) => file['id'] as int).toList();
-        } else {
-          // Find largest file
-          Map largest = normalizedFiles[0] as Map;
-          int largestSize = (largest['bytes'] as int?) ?? 0;
-          for (final file in normalizedFiles) {
-            final size = (file['bytes'] as int?) ?? 0;
-            if (size > largestSize) {
-              largestSize = size;
-              largest = file as Map;
-            }
-          }
-
-          final largestName = largest['name'] as String?;
-          final isLargestVideo = largestName != null && FileUtils.isVideoFile(largestName);
-
-          if (isLargestVideo) {
-            // Media path: try all videos first
-            final videoFiles = normalizedFiles.where((file) {
-              final fileName = (file is Map) ? file['name'] as String? : null;
-              return fileName != null && FileUtils.isVideoFile(fileName);
-            }).toList();
-            fileIdsToSelect = videoFiles.map((file) => file['id'] as int).toList();
-          } else {
-            // Non-media: select all files
-            fileIdsToSelect = normalizedFiles.map((file) => file['id'] as int).toList();
-          }
-        }
       } else {
-        // Select largest file (default behavior)
         int largestFileId = files[0]['id'] as int;
         int largestSize = files[0]['bytes'] as int;
-
         for (final file in files) {
           final fileSize = file['bytes'] as int?;
           if (fileSize != null && fileSize > largestSize) {
@@ -545,84 +488,69 @@ class DebridService {
         fileIdsToSelect = [largestFileId];
       }
 
-      // Step 4: Select files based on preference
       await selectFiles(apiKey, torrentId, fileIdsToSelect);
-
-      // Step 5: Wait a bit and get updated torrent info
       await Future.delayed(const Duration(seconds: 2));
       final updatedInfo = await getTorrentInfo(apiKey, torrentId);
-      List<dynamic> links = updatedInfo['links'] as List<dynamic>;
-
-      // Smart media fallback chain if initial 'smart' video selection yielded no links
-      if ((tempFileSelection ?? await StorageService.getFileSelection()) == 'smart') {
-        // If we selected videos in smart mode and there are no links, try largest video then all files
-        // Determine whether we selected videos by checking if fileIdsToSelect is not 'all' and all are videos
-        final selectedIdsSet = fileIdsToSelect.toSet();
-        final selectedAreVideos = selectedIdsSet.isNotEmpty && files.where((f) => selectedIdsSet.contains(f['id'] as int)).every((f) {
-          final name = f['name'] as String?;
-          return name != null && FileUtils.isVideoFile(name);
-        });
-
-        if (selectedAreVideos && links.isEmpty) {
-          // Try largest video
-          final videoFiles = files.where((f) {
-            final name = f['name'] as String?;
-            return name != null && FileUtils.isVideoFile(name);
-          }).toList();
-          if (videoFiles.isNotEmpty) {
-            int largestVideoId = videoFiles.first['id'] as int;
-            int largestVideoSize = (videoFiles.first['bytes'] as int?) ?? -1;
-            for (final f in videoFiles) {
-              final size = (f['bytes'] as int?) ?? -1;
-              if (size > largestVideoSize) {
-                largestVideoSize = size;
-                largestVideoId = f['id'] as int;
-              }
-            }
-            await selectFiles(apiKey, torrentId, [largestVideoId]);
-            await Future.delayed(const Duration(seconds: 2));
-            final updatedInfo2 = await getTorrentInfo(apiKey, torrentId);
-            links = (updatedInfo2['links'] as List<dynamic>? ?? const []);
-          }
-
-          // If still empty, try all files
-          if (links.isEmpty) {
-            await selectFiles(apiKey, torrentId, []); // 'all'
-            await Future.delayed(const Duration(seconds: 2));
-            final updatedInfo3 = await getTorrentInfo(apiKey, torrentId);
-            links = (updatedInfo3['links'] as List<dynamic>? ?? const []);
-          }
-        }
-      }
+      final links = (updatedInfo['links'] as List<dynamic>? ?? const []);
 
       if (links.isEmpty) {
         await deleteTorrent(apiKey, torrentId);
-        throw Exception('File is not readily available in Real Debrid');
+        throw const DebridException(
+          DebridErrorType.uncached,
+          'This torrent is not cached yet. Try another source.',
+        );
       }
 
-      // Step 6: Unrestrict the link
       final unrestrictResponse = await unrestrictLink(apiKey, links[0]);
       final downloadLink = unrestrictResponse['download'] as String?;
-      
       if (downloadLink == null) {
         await deleteTorrent(apiKey, torrentId);
-        throw Exception('Failed to get download link from Real Debrid');
+        throw const DebridException(DebridErrorType.api, 'Failed to get download link from Real Debrid');
       }
-
-      // Don't delete the torrent - let the user keep it in their Real Debrid account
-      // The torrent will remain available for future downloads
 
       return {
         'downloadLink': downloadLink,
         'torrentId': torrentId,
         'fileSelection': fileSelection,
         'links': links,
-        'files': files, // Add the files information for lazy loading
-        'updatedInfo': updatedInfo, // Add the full updated info
+        'files': files,
+        'updatedInfo': updatedInfo,
       };
+    } on DebridException {
+      rethrow;
     } catch (e) {
-      throw Exception('Failed to add torrent to Real Debrid: $e');
+      throw DebridException(DebridErrorType.unknown, 'Failed to add torrent to Real Debrid: $e');
     }
+  }
+
+  static bool _isTorrentReadyForSelection(Map<String, dynamic> torrentInfo) {
+    final status = (torrentInfo['status']?.toString().toLowerCase() ?? '').trim();
+    final links = torrentInfo['links'] as List<dynamic>?;
+
+    const blockedStatuses = {
+      'magnet_conversion',
+      'queued',
+      'downloading',
+      'compressing',
+      'uploading',
+      'virus',
+      'dead',
+      'error',
+    };
+
+    if (blockedStatuses.contains(status)) {
+      return false;
+    }
+
+    if (status == 'waiting_files_selection') {
+      return true;
+    }
+
+    if (status == 'downloaded' && (links?.isNotEmpty ?? false)) {
+      return true;
+    }
+
+    return false;
   }
 
   // Enhanced workflow for Magic TV: Prefer video files (all), fallback to largest video file
