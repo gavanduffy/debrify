@@ -23,8 +23,6 @@ import 'package:collection/collection.dart';
 
 import 'widgets/animated_background.dart';
 import 'widgets/premium_nav_bar.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'widgets/premium_top_nav.dart';
 import 'services/main_page_bridge.dart';
 import 'models/rd_torrent.dart';
 import 'package:window_manager/window_manager.dart';
@@ -32,8 +30,6 @@ import 'services/deep_link_service.dart';
 import 'services/magnet_link_handler.dart';
 import 'services/stremio_service.dart';
 import 'widgets/auto_launch_overlay.dart';
-import 'widgets/window_drag_area.dart';
-import 'widgets/mobile_floating_nav.dart';
 import 'widgets/tv_sidebar_nav.dart';
 import 'services/remote_control/remote_control_state.dart';
 import 'services/remote_control/remote_command_router.dart';
@@ -41,15 +37,14 @@ import 'services/remote_control/remote_constants.dart';
 import 'widgets/remote/addon_install_dialog.dart';
 import 'widgets/remote/remote_control_screen.dart';
 import 'utils/platform_util.dart';
-
-final WindowListener _desktopFullscreenListener = _DesktopFullscreenListener();
+import 'theme/app_theme.dart';
+import 'widgets/navigation/platform_shell_scaffold.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
     await windowManager.ensureInitialized();
-    windowManager.addListener(_desktopFullscreenListener);
   }
 
   // Initialize sqflite FFI for Windows/Linux desktop (sqflite needs FFI on these platforms)
@@ -66,6 +61,9 @@ Future<void> main() async {
 
   if (!kIsWeb && (Platform.isWindows || Platform.isLinux)) {
     windowManager.waitUntilReadyToShow().then((_) async {
+      await windowManager.setMinimumSize(const Size(980, 640));
+      await windowManager.setSize(const Size(1280, 800));
+      await windowManager.center();
       await windowManager.show();
       await windowManager.focus();
     });
@@ -128,24 +126,6 @@ Future<void> _cleanupPlaybackState() async {
   try {
     await StorageService.cleanupOldPlaybackState();
   } catch (e) {}
-}
-
-class _DesktopFullscreenListener with WindowListener {
-  @override
-  Future<void> onWindowEvent(String eventName) async {
-    if (!Platform.isWindows && !Platform.isLinux) return;
-    if (eventName == 'maximize') {
-      final isFull = await windowManager.isFullScreen();
-      if (!isFull) {
-        await windowManager.setFullScreen(true);
-      }
-    } else if (eventName == 'unmaximize' || eventName == 'restore') {
-      final isFull = await windowManager.isFullScreen();
-      if (isFull) {
-        await windowManager.setFullScreen(false);
-      }
-    }
-  }
 }
 
 // Global scaffold messenger key for showing snackbars from anywhere
@@ -231,159 +211,7 @@ class DebrifyApp extends StatelessWidget {
         // Optimize scroll physics for TV
         physics: const ClampingScrollPhysics(),
       ),
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorScheme: const ColorScheme.dark(
-          primary: Color(0xFF6366F1), // Indigo
-          onPrimary: Colors.white,
-          primaryContainer: Color(0xFF3730A3),
-          onPrimaryContainer: Colors.white,
-          secondary: Color(0xFF10B981), // Emerald
-          onSecondary: Colors.white,
-          secondaryContainer: Color(0xFF065F46),
-          onSecondaryContainer: Colors.white,
-          tertiary: Color(0xFFF59E0B), // Amber
-          onTertiary: Colors.white,
-          tertiaryContainer: Color(0xFF92400E),
-          onTertiaryContainer: Colors.white,
-          surface: Color(0xFF0F172A), // Slate 900
-          onSurface: Colors.white,
-          surfaceContainerHighest: Color(0xFF1E293B), // Slate 800
-          surfaceContainerHigh: Color(0xFF334155), // Slate 700
-          surfaceContainer: Color(0xFF475569), // Slate 600
-          surfaceContainerLow: Color(0xFF64748B), // Slate 500
-          surfaceContainerLowest: Color(0xFF94A3B8), // Slate 400
-          background: Color(0xFF020617), // Slate 950
-          onBackground: Colors.white,
-          error: Color(0xFFEF4444), // Red 500
-          onError: Colors.white,
-          errorContainer: Color(0xFF7F1D1D), // Red 900
-          onErrorContainer: Colors.white,
-          outline: Color(0xFF475569), // Slate 600
-          outlineVariant: Color(0xFF334155), // Slate 700
-          shadow: Color(0xFF000000),
-          scrim: Color(0xFF000000),
-          inverseSurface: Color(0xFFF8FAFC), // Slate 50
-          onInverseSurface: Color(0xFF0F172A), // Slate 900
-          inversePrimary: Color(0xFF818CF8), // Indigo 400
-          surfaceTint: Color(0xFF6366F1), // Indigo 500
-        ),
-        textTheme: GoogleFonts.interTextTheme(
-          const TextTheme(
-            displayLarge: TextStyle(
-              fontSize: 32,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.5,
-            ),
-            displayMedium: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.25,
-            ),
-            displaySmall: TextStyle(fontSize: 24, fontWeight: FontWeight.w600),
-            headlineLarge: TextStyle(fontSize: 22, fontWeight: FontWeight.w600),
-            headlineMedium: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-            ),
-            headlineSmall: TextStyle(fontSize: 18, fontWeight: FontWeight.w600),
-            titleLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-            titleMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-            titleSmall: TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-            bodyLarge: TextStyle(fontSize: 16, fontWeight: FontWeight.normal),
-            bodyMedium: TextStyle(fontSize: 14, fontWeight: FontWeight.normal),
-            bodySmall: TextStyle(fontSize: 12, fontWeight: FontWeight.normal),
-            labelLarge: TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.1,
-            ),
-            labelMedium: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-            labelSmall: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 0.5,
-            ),
-          ),
-        ),
-        cardTheme: CardThemeData(
-          elevation: 8,
-          shadowColor: Colors.black.withValues(alpha: 0.3),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          color: const Color(0xFF1E293B),
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            elevation: 4,
-            shadowColor: Colors.black.withValues(alpha: 0.3),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-          ),
-        ),
-        outlinedButtonTheme: OutlinedButtonThemeData(
-          style: OutlinedButton.styleFrom(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-            side: const BorderSide(color: Color(0xFF475569)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF334155),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFF6366F1), width: 2),
-          ),
-          errorBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-          ),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-        ),
-        appBarTheme: const AppBarTheme(
-          elevation: 0,
-          backgroundColor: Color(0xFF0F172A),
-          foregroundColor: Colors.white,
-          centerTitle: true,
-          titleTextStyle: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        drawerTheme: const DrawerThemeData(backgroundColor: Color(0xFF1E293B)),
-        snackBarTheme: SnackBarThemeData(
-          backgroundColor: const Color(0xFF1E293B),
-          contentTextStyle: const TextStyle(color: Colors.white),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
-          behavior: SnackBarBehavior.floating,
-          elevation: 8,
-        ),
-      ),
+      theme: buildAppTheme(),
       home: const AppInitializer(),
     );
   }
@@ -1309,216 +1137,142 @@ class _MainPageState extends State<MainPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
+    final usePremiumBackground = !kIsWeb && (Platform.isAndroid || Platform.isLinux);
     final visibleIndices = _computeVisibleNavIndices();
     final navItems = [
       for (final index in visibleIndices) NavItem(_icons[index], _titles[index]),
     ];
-    final navBadges = List<int>.filled(navItems.length, 0);
     final selectedNavIndex = visibleIndices.indexOf(_selectedIndex);
     final currentNavIndex = selectedNavIndex == -1 ? 0 : selectedNavIndex;
 
-    return Stack(
-      children: [
-        // Main app content
-        PopScope(
-          canPop: false,
-          onPopInvoked: (bool didPop) async {
-            if (didPop) return;
+    final mainContent = PopScope(
+      canPop: false,
+      onPopInvoked: (bool didPop) async {
+        if (didPop) return;
 
-            // First, check if any child screen wants to handle back navigation
-            // (e.g., folder navigation in RealDebrid, TorBox, PikPak, Playlist screens)
-            if (MainPageBridge.handleBackNavigation()) {
-              return; // Back was handled by child screen (navigated up a folder)
-            }
+        if (MainPageBridge.handleBackNavigation()) {
+          return;
+        }
 
-            // Allow navigation within app for all platforms
-            if (Navigator.canPop(context)) {
-              Navigator.of(context).pop();
-              return;
-            }
+        if (Navigator.canPop(context)) {
+          Navigator.of(context).pop();
+          return;
+        }
 
-            // At root level - platform-specific exit behavior
+        if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
+          return;
+        }
 
-            // Desktop platforms: Don't exit on back button
-            // Users close windows using OS controls (X button, Cmd+Q, etc.)
-            if (Platform.isMacOS || Platform.isWindows || Platform.isLinux) {
-              return; // Do nothing
-            }
+        if (Platform.isIOS) {
+          return;
+        }
 
-            // iOS: Don't force exit - iOS apps don't have back buttons
-            // Users exit by swiping up or using home button
-            if (Platform.isIOS) {
-              return; // Do nothing
-            }
+        if (Platform.isAndroid) {
+          final currentTime = DateTime.now();
+          final backButtonPressedTwice = _lastBackPressTime != null &&
+              currentTime.difference(_lastBackPressTime!) < _backPressDuration;
 
-            // Android (both mobile and TV): Double back press to exit
-            if (Platform.isAndroid) {
-              final currentTime = DateTime.now();
-              final backButtonPressedTwice = _lastBackPressTime != null &&
-                  currentTime.difference(_lastBackPressTime!) < _backPressDuration;
+          if (backButtonPressedTwice) {
+            SystemNavigator.pop();
+            return;
+          }
 
-              if (backButtonPressedTwice) {
-                SystemNavigator.pop();
-                return;
-              }
+          _lastBackPressTime = currentTime;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Press back again to exit'),
+              duration: _backPressDuration,
+            ),
+          );
+        }
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isMobile = constraints.maxWidth < 600 && !_isAndroidTv;
 
-              // First press - show message
-              _lastBackPressTime = currentTime;
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('Press back again to exit'),
-                  duration: _backPressDuration,
-                ),
-              );
-            }
-          },
-          child: AnimatedPremiumBackground(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Show floating nav on mobile (narrow screens), but not on TV
-                final isMobile = constraints.maxWidth < 600 && !_isAndroidTv;
-
-                // TV Layout: Sidebar + Content
-                if (_isAndroidTv) {
-                  return Scaffold(
-                    backgroundColor: Colors.transparent,
-                    body: Row(
-                      children: [
-                        // TV Sidebar Navigation
-                        TvSidebarNav(
-                          key: _tvSidebarKey,
-                          currentIndex: currentNavIndex,
-                          items: [
-                            for (final navItem in navItems)
-                              TvNavItem(navItem.icon, navItem.label),
-                          ],
-                          onTap: (relativeIndex) {
-                            final actualIndex = visibleIndices[relativeIndex];
-                            _onItemTapped(actualIndex);
-                            // Focus is handled by sidebar via MainPageBridge
-                          },
-                          onFocusContent: () {
-                            // Fallback for screens without registered handler
-                            FocusScope.of(context).nextFocus();
-                          },
-                        ),
-                        // Content area
-                        Expanded(
-                          child: SafeArea(
-                            left: false,
-                            child: FadeTransition(
-                              opacity: _fadeAnimation,
-                              child: AnimatedSwitcher(
-                                duration: const Duration(milliseconds: 350),
-                                transitionBuilder: (child, animation) {
-                                  final offsetAnimation =
-                                      Tween<Offset>(
-                                        begin: const Offset(0.02, 0.02),
-                                        end: Offset.zero,
-                                      ).animate(
-                                        CurvedAnimation(
-                                          parent: animation,
-                                          curve: Curves.easeOutCubic,
-                                        ),
-                                      );
-                                  return FadeTransition(
-                                    opacity: animation,
-                                    child: SlideTransition(position: offsetAnimation, child: child),
-                                  );
-                                },
-                                child: KeyedSubtree(
-                                  key: ValueKey<int>(_selectedIndex),
-                                  child: _pages[_selectedIndex],
-                                ),
+          if (_isAndroidTv) {
+            return Scaffold(
+              backgroundColor: usePremiumBackground
+                  ? Colors.transparent
+                  : Theme.of(context).scaffoldBackgroundColor,
+              body: Row(
+                children: [
+                  TvSidebarNav(
+                    key: _tvSidebarKey,
+                    currentIndex: currentNavIndex,
+                    items: [
+                      for (final navItem in navItems)
+                        TvNavItem(navItem.icon, navItem.label),
+                    ],
+                    onTap: (relativeIndex) {
+                      final actualIndex = visibleIndices[relativeIndex];
+                      _onItemTapped(actualIndex);
+                    },
+                    onFocusContent: () {
+                      FocusScope.of(context).nextFocus();
+                    },
+                  ),
+                  Expanded(
+                    child: SafeArea(
+                      left: false,
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          transitionBuilder: (child, animation) {
+                            final offsetAnimation = Tween<Offset>(
+                              begin: const Offset(0.02, 0.02),
+                              end: Offset.zero,
+                            ).animate(
+                              CurvedAnimation(
+                                parent: animation,
+                                curve: Curves.easeOutCubic,
                               ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }
-
-                // Mobile & Desktop Layout
-                return Scaffold(
-                  backgroundColor: Colors.transparent,
-                  // Hide AppBar on mobile - we'll use floating nav instead
-                  appBar: isMobile
-                      ? null
-                      : AppBar(
-                          title: WindowDragArea(
-                            child: PremiumTopNav(
-                              currentIndex: currentNavIndex,
-                              items: navItems,
-                              onTap: (relativeIndex) {
-                                final actualIndex = visibleIndices[relativeIndex];
-                                _onItemTapped(actualIndex);
-                              },
-                              badges: navBadges,
-                              haptics: true,
-                            ),
-                          ),
-                          automaticallyImplyLeading: false,
-                        ),
-                  body: Stack(
-                    children: [
-                      SafeArea(
-                        child: FadeTransition(
-                          opacity: _fadeAnimation,
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 350),
-                            transitionBuilder: (child, animation) {
-                              final offsetAnimation =
-                                  Tween<Offset>(
-                                    begin: const Offset(0.02, 0.02),
-                                    end: Offset.zero,
-                                  ).animate(
-                                    CurvedAnimation(
-                                      parent: animation,
-                                      curve: Curves.easeOutCubic,
-                                    ),
-                                  );
-                              return FadeTransition(
-                                opacity: animation,
-                                child: SlideTransition(position: offsetAnimation, child: child),
-                              );
-                            },
-                            child: KeyedSubtree(
-                              key: ValueKey<int>(_selectedIndex),
-                              child: _pages[_selectedIndex],
-                            ),
+                            );
+                            return FadeTransition(
+                              opacity: animation,
+                              child: SlideTransition(position: offsetAnimation, child: child),
+                            );
+                          },
+                          child: KeyedSubtree(
+                            key: ValueKey<int>(_selectedIndex),
+                            child: _pages[_selectedIndex],
                           ),
                         ),
                       ),
-                      // Floating nav on mobile
-                      if (isMobile)
-                        MobileFloatingNav(
-                          currentIndex: currentNavIndex,
-                          items: [
-                            for (final navItem in navItems)
-                              MobileNavItem(navItem.icon, navItem.label),
-                          ],
-                          onTap: (relativeIndex) {
-                            final actualIndex = visibleIndices[relativeIndex];
-                            _onItemTapped(actualIndex);
-                          },
-                          onRemoteControlTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => const RemoteControlScreen(),
-                              ),
-                            );
-                          },
-                        ),
-                    ],
+                    ),
                   ),
-                );
-              },
-            ),
-          ),
-        ),
+                ],
+              ),
+            );
+          }
 
-        // Auto-launch overlay (covers everything when shown)
+          return MainShellScaffold(
+            isMobile: isMobile,
+            usePremiumBackground: usePremiumBackground,
+            selectedIndex: _selectedIndex,
+            navItems: navItems,
+            visibleIndices: visibleIndices,
+            pages: _pages,
+            fadeAnimation: _fadeAnimation,
+            onItemTapped: _onItemTapped,
+            onRemoteControlTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (_) => const RemoteControlScreen(),
+                ),
+              );
+            },
+          );
+        },
+      ),
+    );
+
+    return Stack(
+      children: [
+        usePremiumBackground
+            ? AnimatedPremiumBackground(child: mainContent)
+            : mainContent,
         if (_showAutoLaunchOverlay)
           AutoLaunchOverlay(
             channelName: _autoLaunchChannelName ?? 'Loading...',

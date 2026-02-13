@@ -6,6 +6,7 @@ import 'pikpak_api_service.dart';
 import 'storage_service.dart';
 import '../models/rd_torrent.dart';
 import '../models/torbox_torrent.dart';
+import '../models/debrid_error.dart';
 
 /// Handles incoming magnet links and shared URLs, routing them to appropriate debrid service
 class MagnetLinkHandler {
@@ -201,7 +202,7 @@ class MagnetLinkHandler {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
-      _showError('Error adding to RealDebrid: $e');
+      _showError(debridUserMessage(e));
     }
   }
 
@@ -446,7 +447,7 @@ class MagnetLinkHandler {
     } catch (e) {
       if (!context.mounted) return;
       Navigator.of(context).pop(); // Close loading dialog
-      _showError('Error adding to RealDebrid: $e');
+      _showError(debridUserMessage(e));
     }
   }
 
